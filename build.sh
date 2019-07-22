@@ -49,6 +49,9 @@ usage() {
       ${COLORS[GREEN]}-A, --auto${COLORS[OFF]}
           Automatic, non-interactive installation; disabled by default.
           When set, script defaults options not explicitly set.
+      ${COLORS[GREEN]}-N, --nproc <njobs>${COLORS[OFF]}
+          Override number of jobs to execute make with.
+          Defaults to output of \$ nproc.
       ${COLORS[GREEN]}-h, --help${COLORS[OFF]}
           Displays this help.
 "
@@ -147,6 +150,7 @@ set_build_opts() {
     [[ "${p^^}" != "Y" ]] && ENABLE_IPC_MSG="OFF" || ENABLE_IPC_MSG="ON"
   fi
 
+  [[ -z "$NPROC" ]] && NPROC="$(nproc)"
 
   CXX="c++"
 
@@ -195,8 +199,8 @@ main() {
     -DBUILD_IPC_MSG:BOOL="${ENABLE_IPC_MSG}"   \
     .. || msg_err "Failed to generate build... read output to get a hint of what went wrong"
 
-  msg "Building project"
-  make || msg_err "Failed to build project"
+  msg "Building project ([$NPROC] parallel make jobs)"
+  make -j$NPROC || msg_err "Failed to build project"
   install
   msg "Build complete!"
 
@@ -217,6 +221,11 @@ while [[ "$1" == -* ]]; do
       ENABLE_PULSEAUDIO=ON; shift ;;
     -n|--network)
       ENABLE_NETWORK=ON; shift ;;
+    -N|--nproc)
+      NPROC="$2"
+      shift 2
+      [[ "$NPROC" =~ ^[0-9]+$ && "$NPROC" -gt 0 ]] || msg_err "[-N,--nproc] option must be a positive integer"
+      ;;
     -m|--mpd)
       ENABLE_MPD=ON; shift ;;
     -c|--curl)
